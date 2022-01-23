@@ -1,0 +1,179 @@
+/****************************************************************************
+  Realizziamo il classico giochino del Ping Pong
+
+ Occorrente:
+  - 1 Arduino (io uso Arduino Nano)
+  - 1 Display oled
+  - 4 Pulsanti
+  - Cavetti di varie misure
+
+  
+ Per questo Progetto useremo le librerie di U8g2 
+
+  Siciliano Francesco il 21/01/2022
+****************************************************************************/
+
+// ***** Display *****
+#include <Arduino.h>
+#include <U8g2lib.h>
+#include <SPI.h>
+
+// Definizione costanti display
+#define INDIRIZZO_DISPLAY 0x3c // Indirizzo I2C display
+#define LARGHEZZA_DISPLAY 128 // Larghezza del displayth, in pixels
+#define ALTEZZA_DISPLAY 64 // Altezza display, in pixels
+
+U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
+
+
+// ***** Pin fisici *****
+#define su 2
+#define dx 5
+#define giu 4
+#define sx 3
+
+// ***** Variabili *****
+// Dimensioni tavola
+int L=28, H=4, vel_p=2;
+int x_p=(LARGHEZZA_DISPLAY-L)/2, y_p=ALTEZZA_DISPLAY-H;
+int r=2, ball_x, ball_y=2;
+int x_b=(LARGHEZZA_DISPLAY-r)/2, y_b=y_p-(r*2);
+bool inizio=false;
+
+// ***** Funzioni usate *****
+void setup_display();
+void testo_inizio();
+char verso ();
+void movimento_pad (char v);
+void movimento_ball (bool i);
+void collisione ();
+
+void setup() {
+  randomSeed (analogRead(A0));
+  pinMode (su,INPUT);
+  pinMode (dx,INPUT);
+  pinMode (sx,INPUT);
+  pinMode (giu,INPUT);
+      
+  // ---- display ----
+  setup_display();
+  u8g2.clearBuffer();
+  testo_inizio();
+  u8g2.sendBuffer();
+  bool in=true;
+  while (in){ 
+    if (verso()== 's' or verso()== 'g' or verso()== 'x' or verso()== 'd'){
+      in=false;
+    }
+  }
+
+}
+
+void loop() {
+  u8g2.clearBuffer();
+    u8g2.drawFrame (0,0,LARGHEZZA_DISPLAY, ALTEZZA_DISPLAY);
+    // Pad
+    u8g2.drawBox(x_p,y_p,L,H);
+    // bal
+    u8g2.drawDisc (x_b, y_b, r);
+  u8g2.sendBuffer();
+
+  char v=verso();
+  if (v=='s'){
+    inizio=true;
+    ball_x=random(-2, 2);
+    ball_y=2;
+    }
+  movimento_pad(v);
+  movimento_ball (inizio);
+  collisione ();
+}
+
+// ---- Collisione ----
+void collisione (){
+   // Collisione con i bordi
+   if (x_b-r<0) ball_x=-1*ball_x;
+   if (x_b+r==LARGHEZZA_DISPLAY) ball_x=-1*ball_x; 
+     
+  //  Collisinone col bordo superiore
+  if (y_b-r<0) ball_y=-1*ball_y;
+  
+  // Collisione col pad
+  if (x_p<x_b and (x_p+L)>x_b and y_p==y_b) {
+    ball_x=random(-2,2);
+    ball_y=-1*ball_y;
+    } 
+
+   // Collisione col bordo inferiore
+  if ((x_p > x_b or (x_p+L) < x_b) and y_p < y_b){
+    x_b=(LARGHEZZA_DISPLAY-r)/2;
+    y_b=y_p-(r*2);
+    inizio=false;
+    x_p=(LARGHEZZA_DISPLAY-L)/2;
+    y_p=ALTEZZA_DISPLAY-H;
+  }
+}
+
+// ---- Movimento Palla ----
+void movimento_ball (bool i){
+  if (!i){
+    x_b=(LARGHEZZA_DISPLAY-r)/2;
+    y_b=y_p-(r*2);
+   } else {
+     x_b=x_b+ball_x;
+     y_b=y_b-ball_y; 
+   }
+}
+
+// ---- Movimento Pad ----
+void movimento_pad (char v){  
+switch (verso()){
+    case 'x': //sx
+      x_p=x_p-vel_p;
+      if (x_p<0) {x_p=0;} // questo xk sto lavorando con byte e non gli interi
+    break;    
+    case 'g': // giu
+      // Non facciamo nulla
+    break;    
+    case 'd': // dx
+      x_p=x_p+vel_p;
+      if (x_p>=(LARGHEZZA_DISPLAY-L)) {x_p=(LARGHEZZA_DISPLAY-L);}
+    break;    
+    case 's': // su
+      // Non facciamo nulla
+    break;    
+    }
+}
+
+// ---- Verso pad ----
+char verso (){
+  char i;
+  if (digitalRead (su)) i='s';
+  else if (digitalRead (giu)) i='g';
+  else if (digitalRead (sx)) i='x';
+  else if (digitalRead (dx)) i='d';
+  return i;  
+  }
+
+// ---- Testo iniziale ----
+void testo_inizio(){
+  u8g2.drawStr(1,10, "Questo e' Un piccolo");
+  u8g2.drawStr(1,20, "gioco di ping pong ");
+  u8g2.drawStr(1,30, "utilizzare le freccie ");
+  u8g2.drawStr(1,40, "per muoversi ");
+  u8g2.drawStr(1,60, "PREMI UN TASTO ");
+  }
+
+// ---- Setup display ----
+void setup_display() {
+  u8g2.begin();
+  // Attiviamo il display
+  u8g2.setFont(u8g2_font_6x10_tf);
+  // Impostiamo i font
+  u8g2.setFontDirection(0);
+  //  Impostiamo l'ordimanento 
+  //  0-> Orizontare lato pin / 2->Orizontare lato opposto pin
+  //  1-> Verticale lato sda / 3->Verticale lato gnd
+  // ma y=0 e x=0 sarà sempre l'angolo dei pin lato gnd
+  
+}
